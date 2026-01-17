@@ -1,0 +1,12 @@
+{
+  "total_ram_gb": 23.86,
+  "cpu_cores": 12,
+  "cpu_model": "Intel(R) Core(TM) i7-9750H CPU @ 2.60GHz",
+  "gpu_model": "NVIDIA GeForce GTX 1650",
+  "gpu_memory_gb": 4.0,
+  "cuda_version": "551.61",
+  "wsl_available": true,
+  "storage_available_gb": 57.2,
+  "os_info": "Windows 10 10.0.26100",
+  "python_version": "3.11.4"
+}

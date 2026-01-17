@@ -1,0 +1,86 @@
+{
+  "description": "话剧音频增强处理配置文件",
+  "version": "1.0",
+  "target_scenario": "theater_drama",
+  
+  "noise_reduction": {
+    "method": "spectral_subtraction",
+    "strength": "medium",
+    "noise_floor": -40,
+    "description": "降噪配置 - 去除录制设备噪音和环境噪音"
+  },
+  
+  "equalizer": {
+    "low_cut": {
+      "freq": 80,
+      "gain": -6,
+      "description": "低频衰减 - 去除低频噪音和隆隆声"
+    },
+    "speech_boost": {
+      "freq_range": [300, 3000],
+      "gain": 4,
+      "description": "人声增强 - 提升对话清晰度的关键频段"
+    },
+    "clarity_boost": {
+      "freq_range": [4000, 8000],
+      "gain": 2,
+      "description": "清晰度提升 - 增强语音的清晰度和可懂度"
+    },
+    "high_cut": {
+      "freq": 12000,
+      "gain": -2,
+      "description": "高频控制 - 减少刺耳的高频噪音"
+    }
+  },
+  
+  "dynamics": {
+    "compressor": {
+      "ratio": 4.0,
+      "threshold": -18,
+      "attack": 5,
+      "release": 100,
+      "description": "压缩器 - 平衡音量变化，使对话更均匀"
+    },
+    "limiter": {
+      "threshold": -1,
+      "release": 50,
+      "description": "限幅器 - 防止音频过载和失真"
+    }
+  },
+  
+  "spatial": {
+    "reverb_time": 1.2,
+    "stereo_width": 110,
+    "room_size": "medium",
+    "description": "空间音效 - 优化舞台空间感和立体声效果"
+  },
+  
+  "output": {
+    "format": "aac",
+    "bitrate": "192k",
+    "sample_rate": 48000,
+    "channels": 2,
+    "description": "输出格式 - 高质量AAC编码"
+  },
+  
+  "theater_presets": {
+    "proscenium": {
+      "description": "镜框式舞台 - 传统剧场设置",
+      "noise_reduction": {"strength": "light"},
+      "equalizer": {"speech_boost": {"gain": 3}},
+      "spatial": {"reverb_time": 1.5, "stereo_width": 100}
+    },
+    "arena": {
+      "description": "环形舞台 - 观众环绕设置",
+      "noise_reduction": {"strength": "medium"},
+      "equalizer": {"speech_boost": {"gain": 4}},
+      "spatial": {"reverb_time": 1.0, "stereo_width": 120}
+    },
+    "black_box": {
+      "description": "黑匣子剧场 - 小型亲密空间",
+      "noise_reduction": {"strength": "heavy"},
+      "equalizer": {"speech_boost": {"gain": 5}},
+      "spatial": {"reverb_time": 0.8, "stereo_width": 130}
+    }
+  }
+}

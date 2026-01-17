@@ -1,0 +1,29 @@
+{
+  "test_image_size": [
+    480,
+    640,
+    3
+  ],
+  "iterations": 5,
+  "gpu_available": false,
+  "operations": {
+    "upscale_2x": {
+      "gpu": null,
+      "cpu": {
+        "avg_time": 0.015612125396728516,
+        "min_time": 0.011030197143554688,
+        "max_time": 0.021150588989257812
+      },
+      "speedup": 0
+    },
+    "denoise": {
+      "gpu": null,
+      "cpu": {
+        "avg_time": 0.026600742340087892,
+        "min_time": 0.012476444244384766,
+        "max_time": 0.06611275672912598
+      },
+      "speedup": 0
+    }
+  }
+}

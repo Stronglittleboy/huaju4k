@@ -1,0 +1,74 @@
+{
+  "verification_date": "2025-12-31T13:58:28.191186",
+  "opencv_version": "4.13.0-pre",
+  "cuda_devices": 1,
+  "verification_results": {
+    "basic_info": {
+      "opencv_version": "4.13.0-pre",
+      "cuda_devices": 1,
+      "cuda_support": true,
+      "build_info_available": true
+    },
+    "gpu_memory": {
+      "allocation": true,
+      "upload": true,
+      "download": true,
+      "data_integrity": true,
+      "memory_release": true,
+      "overall": true
+    },
+    "basic_operations": {
+      "operations": {
+        "resize": false,
+        "cvtColor": false,
+        "add": false
+      },
+      "passed": 0,
+      "total": 3,
+      "success_rate": 0.0,
+      "overall": false
+    },
+    "advanced_operations": {
+      "operations": {
+        "bilateralFilter": false,
+        "GaussianBlur": false,
+        "morphologyEx": false
+      },
+      "passed": 0,
+      "total": 3,
+      "success_rate": 0.0,
+      "overall": false
+    },
+    "performance": {
+      "cpu_time": 0.1345672607421875,
+      "gpu_time": null,
+      "speedup": null,
+      "gpu_faster": false,
+      "test_successful": false,
+      "error": "OpenCV(4.13.0-pre) /mnt/d/workHolder/opencv_contrib/modules/cudawarping/src/cuda/resize.cu:337: error: (-217:Gpu API call) no kernel image is available for execution on the device in function 'call_resize_linear_glob'\n"
+    },
+    "device_info": {
+      "available": true,
+      "data": {
+        "name": "Unknown",
+        "major_version": 7,
+        "minor_version": 5,
+        "total_memory": 4294639616,
+        "free_memory": 3450601472
+      },
+      "overall": true
+    }
+  },
+  "summary": {
+    "operations_tested": 3,
+    "operations_passed": 1,
+    "success_rate": 0.3333333333333333,
+    "cuda_status": "部分可用",
+    "cuda_usable": true
+  },
+  "recommendations": [
+    "部分CUDA功能可用，建议检查具体失败的操作",
+    "可能存在GPU架构兼容性问题",
+    "建议更新GPU驱动到最新版本"
+  ]
+}

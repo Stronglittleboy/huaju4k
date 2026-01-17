@@ -1,0 +1,23 @@
+# GPU Stage 依赖
+# 用于 Real-ESRGAN GPU 超分增强
+
+# PyTorch with CUDA (根据你的 CUDA 版本选择)
+# CUDA 11.8
+torch>=2.0.0
+torchvision>=0.15.0
+
+# Real-ESRGAN 核心
+realesrgan>=0.3.0
+basicsr>=1.4.2
+
+# 图像处理
+opencv-python>=4.5.0
+numpy>=1.21.0
+
+# 视频处理
+ffmpeg-python>=0.2.0
+
+# 安装命令:
+# pip install torch torchvision --index-url https://download.pytorch.org/whl/cu118
+# pip install realesrgan basicsr
+# pip install -r requirements-gpu.txt

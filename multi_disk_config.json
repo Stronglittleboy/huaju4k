@@ -1,0 +1,20 @@
+{
+  "disk_config": {
+    "primary": "/mnt/d/workProject/huaju4k",
+    "storage_e": "/mnt/e/video_temp",
+    "storage_g": "/mnt/g/video_temp", 
+    "output": "/mnt/e/video_output"
+  },
+  "segment_config": {
+    "frames_per_segment": 500,
+    "max_concurrent_segments": 1,
+    "cleanup_after_segment": true,
+    "keep_checkpoints": true
+  },
+  "processing_config": {
+    "scale_factor": 2,
+    "quality_preset": "medium",
+    "crf": 18,
+    "max_threads": 4
+  }
+}

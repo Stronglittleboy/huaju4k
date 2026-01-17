@@ -1,0 +1,83 @@
+{
+  "video_config": {
+    "ai_model": "realesrgan-x4plus",
+    "tile_size": 512,
+    "batch_size": 4,
+    "gpu_acceleration": true,
+    "target_resolution": [
+      3840,
+      2160
+    ]
+  },
+  "audio_config": {
+    "noise_reduction_strength": 0.3,
+    "dialogue_enhancement": 0.4,
+    "dynamic_range_target": -23.0,
+    "preserve_naturalness": true,
+    "theater_preset": "medium"
+  },
+  "performance_config": {
+    "cpu_threads": 4,
+    "gpu_memory_limit": 4.0,
+    "memory_optimization": true,
+    "parallel_processing": true
+  },
+  "logging_config": {
+    "log_level": "INFO",
+    "log_file_path": null,
+    "console_output": true,
+    "json_format": true,
+    "max_file_size": 10485760,
+    "backup_count": 5
+  },
+  "presets": {
+    "test_preset": {
+      "video_config": {
+        "ai_model": "test_model",
+        "target_resolution": [
+          1920,
+          1080
+        ],
+        "tile_size": 640,
+        "batch_size": 1,
+        "gpu_acceleration": true
+      },
+      "audio_config": {
+        "noise_reduction_strength": 0.5,
+        "theater_preset": "medium"
+      }
+    },
+    "demo_preset": {
+      "video_config": {
+        "ai_model": "demo_model",
+        "target_resolution": [
+          1920,
+          1080
+        ],
+        "tile_size": 512,
+        "batch_size": 2,
+        "gpu_acceleration": true
+      },
+      "audio_config": {
+        "noise_reduction_strength": 0.4,
+        "theater_preset": "large"
+      }
+    },
+    "integration_test_preset": {
+      "video_config": {
+        "ai_model": "test_model",
+        "target_resolution": [
+          1920,
+          1080
+        ],
+        "tile_size": 640,
+        "batch_size": 1,
+        "gpu_acceleration": true
+      },
+      "audio_config": {
+        "noise_reduction_strength": 0.5,
+        "theater_preset": "medium"
+      }
+    }
+  }
+}

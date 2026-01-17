@@ -1,0 +1,76 @@
+{
+  "timestamp": "2025-12-31T15:10:39.894777",
+  "problem": "OpenCV编译时只包含计算能力6.1，GTX 1650需要7.5",
+  "solutions": [
+    {
+      "name": "预编译OpenCV",
+      "commands": [
+        "pip uninstall opencv-python opencv-contrib-python -y",
+        "pip install opencv-contrib-python==4.8.1.78",
+        "pip install opencv-contrib-python"
+      ],
+      "success_rate": 0.8
+    },
+    {
+      "name": "Conda OpenCV",
+      "commands": [
+        "wget https://repo.anaconda.com/miniconda/Miniconda3-latest-Linux-x86_64.sh",
+        "bash Miniconda3-latest-Linux-x86_64.sh -b",
+        "source ~/miniconda3/bin/activate",
+        "conda create -n opencv_cuda python=3.10 -y",
+        "conda activate opencv_cuda",
+        "conda install cudatoolkit=11.8 -y",
+        "conda install -c conda-forge opencv -y",
+        "conda install -c menpo opencv3 -y"
+      ],
+      "success_rate": 0.7
+    },
+    {
+      "name": "重新编译OpenCV",
+      "commands": [
+        "sudo apt update",
+        "sudo apt install -y cmake g++ wget unzip",
+        "sudo apt install -y libgtk-3-dev libavcodec-dev libavformat-dev libswscale-dev",
+        "sudo apt install -y libgstreamer-plugins-base1.0-dev libgstreamer1.0-dev",
+        "sudo apt install -y libpng-dev libjpeg-dev libopenexr-dev libtiff-dev libwebp-dev",
+        "cd /tmp",
+        "wget -O opencv.zip https://github.com/opencv/opencv/archive/4.8.1.zip",
+        "wget -O opencv_contrib.zip https://github.com/opencv/opencv_contrib/archive/4.8.1.zip",
+        "unzip opencv.zip && unzip opencv_contrib.zip",
+        "cd opencv-4.8.1 && mkdir build && cd build",
+        "cmake -D CMAKE_BUILD_TYPE=RELEASE \\",
+        "      -D CMAKE_INSTALL_PREFIX=/usr/local \\",
+        "      -D OPENCV_EXTRA_MODULES_PATH=/tmp/opencv_contrib-4.8.1/modules \\",
+        "      -D WITH_CUDA=ON \\",
+        "      -D CUDA_ARCH_BIN=7.5 \\",
+        "      -D CUDA_ARCH_PTX=7.5 \\",
+        "      -D WITH_CUDNN=ON \\",
+        "      -D OPENCV_DNN_CUDA=ON \\",
+        "      -D ENABLE_FAST_MATH=1 \\",
+        "      -D CUDA_FAST_MATH=1 \\",
+        "      -D WITH_CUBLAS=1 \\",
+        "      -D BUILD_opencv_python3=ON \\",
+        "      ..",
+        "make -j$(nproc)",
+        "sudo make install",
+        "sudo ldconfig"
+      ],
+      "success_rate": 0.95
+    },
+    {
+      "name": "Docker OpenCV",
+      "dockerfile": "FROM nvidia/cuda:11.8-devel-ubuntu20.04\n\n# 安装依赖\nRUN apt-get update && apt-get install -y \\\n    python3 python3-pip cmake g++ wget unzip \\\n    libgtk-3-dev libavcodec-dev libavformat-dev libswscale-dev \\\n    libgstreamer-plugins-base1.0-dev libgstreamer1.0-dev \\\n    libpng-dev libjpeg-dev libopenexr-dev libtiff-dev libwebp-dev\n\n# 下载并编译OpenCV\nWORKDIR /tmp\nRUN wget -O opencv.zip https://github.com/opencv/opencv/archive/4.8.1.zip && \\\n    wget -O opencv_contrib.zip https://github.com/opencv/opencv_contrib/archive/4.8.1.zip && \\\n    unzip opencv.zip && unzip opencv_contrib.zip\n\nWORKDIR /tmp/opencv-4.8.1/build\nRUN cmake -D CMAKE_BUILD_TYPE=RELEASE \\\n          -D CMAKE_INSTALL_PREFIX=/usr/local \\\n          -D OPENCV_EXTRA_MODULES_PATH=/tmp/opencv_contrib-4.8.1/modules \\\n          -D WITH_CUDA=ON \\\n          -D CUDA_ARCH_BIN=7.5 \\\n          -D CUDA_ARCH_PTX=7.5 \\\n          -D WITH_CUDNN=ON \\\n          -D OPENCV_DNN_CUDA=ON \\\n          -D BUILD_opencv_python3=ON \\\n          .. && \\\n    make -j$(nproc) && \\\n    make install && \\\n    ldconfig\n\n# 安装Python包\nRUN pip3 install numpy\n\nWORKDIR /workspace\n",
+      "commands": [
+        "cat > Dockerfile << 'EOF'\nFROM nvidia/cuda:11.8-devel-ubuntu20.04\n\n# 安装依赖\nRUN apt-get update && apt-get install -y \\\n    python3 python3-pip cmake g++ wget unzip \\\n    libgtk-3-dev libavcodec-dev libavformat-dev libswscale-dev \\\n    libgstreamer-plugins-base1.0-dev libgstreamer1.0-dev \\\n    libpng-dev libjpeg-dev libopenexr-dev libtiff-dev libwebp-dev\n\n# 下载并编译OpenCV\nWORKDIR /tmp\nRUN wget -O opencv.zip https://github.com/opencv/opencv/archive/4.8.1.zip && \\\n    wget -O opencv_contrib.zip https://github.com/opencv/opencv_contrib/archive/4.8.1.zip && \\\n    unzip opencv.zip && unzip opencv_contrib.zip\n\nWORKDIR /tmp/opencv-4.8.1/build\nRUN cmake -D CMAKE_BUILD_TYPE=RELEASE \\\n          -D CMAKE_INSTALL_PREFIX=/usr/local \\\n          -D OPENCV_EXTRA_MODULES_PATH=/tmp/opencv_contrib-4.8.1/modules \\\n          -D WITH_CUDA=ON \\\n          -D CUDA_ARCH_BIN=7.5 \\\n          -D CUDA_ARCH_PTX=7.5 \\\n          -D WITH_CUDNN=ON \\\n          -D OPENCV_DNN_CUDA=ON \\\n          -D BUILD_opencv_python3=ON \\\n          .. && \\\n    make -j$(nproc) && \\\n    make install && \\\n    ldconfig\n\n# 安装Python包\nRUN pip3 install numpy\n\nWORKDIR /workspace\nEOF",
+        "docker build -t opencv-cuda-75 .",
+        "docker run --gpus all -it -v $(pwd):/workspace opencv-cuda-75"
+      ],
+      "success_rate": 0.9
+    },
+    {
+      "name": "CPU回退",
+      "commands": [],
+      "success_rate": 1.0
+    }
+  ]
+}

@@ -1,0 +1,53 @@
+{
+  "streaming": {
+    "enabled": true,
+    "max_memory_mb": 2048,
+    "max_vram_mb": 3072,
+    "checkpoint_interval": 500,
+    "temporal_buffer_size": 3,
+    "batch_size": 1,
+    "enable_temporal_stabilization": true
+  },
+  "video": {
+    "ai_model": "real_esrgan_x4",
+    "quality_presets": {
+      "fast": {
+        "tile_size": 512,
+        "batch_size": 4,
+        "denoise_strength": 0.5
+      },
+      "balanced": {
+        "tile_size": 768,
+        "batch_size": 2,
+        "denoise_strength": 0.7
+      },
+      "high": {
+        "tile_size": 1024,
+        "batch_size": 1,
+        "denoise_strength": 0.9
+      }
+    }
+  },
+  "audio": {
+    "theater_presets": {
+      "theater_medium_balanced": {
+        "reverb_reduction": 0.6,
+        "dialogue_boost": 4.0,
+        "noise_reduction": 0.5,
+        "spatial_enhancement": true,
+        "preserve_naturalness": true
+      }
+    }
+  },
+  "performance": {
+    "use_gpu": true,
+    "gpu_id": 0,
+    "max_memory_usage": 0.7,
+    "tile_overlap": 32,
+    "num_workers": 2,
+    "prefetch_factor": 2
+  },
+  "models_dir": "./models",
+  "temp_dir": "/tmp/huaju4k_streaming",
+  "progress_update_interval": 1.0
+}

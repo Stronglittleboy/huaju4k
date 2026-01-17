@@ -1,0 +1,32 @@
+{
+  "benchmark_timestamp": "2025-12-30T15:28:18.177563",
+  "test_image_shape": [
+    1080,
+    1920,
+    3
+  ],
+  "iterations": 3,
+  "algorithms": {
+    "upscale_lanczos4": {
+      "avg_time_seconds": 0.29391733805338544,
+      "fps_equivalent": 3.402317150199441
+    },
+    "upscale_cubic": {
+      "avg_time_seconds": 0.05245327949523926,
+      "fps_equivalent": 19.06458489579782
+    },
+    "denoise_bilateral": {
+      "avg_time_seconds": 0.13221208254496256,
+      "fps_equivalent": 7.563605237516177
+    },
+    "denoise_nlm": {
+      "avg_time_seconds": 4.436561266581218,
+      "fps_equivalent": 0.22539979500172502
+    }
+  },
+  "system_info": {
+    "cpu_cores": 12,
+    "opencv_version": "4.12.0",
+    "opencv_cuda_available": false
+  }
+}
