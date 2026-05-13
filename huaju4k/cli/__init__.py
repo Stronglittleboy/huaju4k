@@ -1,7 +1,5 @@
-"""
-Command-line interface package for huaju4k video enhancement tool.
-"""
+"""Command-line interface for huaju4k."""
 
 from .main import cli
 
-__all__ = ['cli']
+__all__ = ["cli"]

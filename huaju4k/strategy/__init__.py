@@ -1,9 +1,5 @@
-"""
-Huaju4K Strategy Module
-
-This module contains strategy planning components for the theater enhancement system.
-"""
+"""Enhancement strategy planning for huaju4k."""
 
 from .enhancement_planner import EnhancementStrategyPlanner
 
-__all__ = ['EnhancementStrategyPlanner']
+__all__ = ["EnhancementStrategyPlanner"]

@@ -88,12 +88,13 @@ class CheckpointSystem:
                 metadata=metadata or {}
             )
             
-            # Add system metadata
+            # Populate input_hash (first 1MB MD5) for --resume matching
+            checkpoint.input_hash = self._calculate_file_hash(input_path)
+
             checkpoint.metadata.update({
                 'created_by': 'huaju4k_checkpoint_system',
-                'version': '1.0',
+                'version': '2.0',
                 'input_file_size': self._get_file_size(input_path),
-                'input_file_hash': self._calculate_file_hash(input_path)
             })
             
             logger.info(f"Created checkpoint: {checkpoint_id} for stage '{current_stage}' "
@@ -116,9 +117,8 @@ class CheckpointSystem:
             True if saved successfully
         """
         try:
-            # Validate checkpoint
-            if not checkpoint.is_valid():
-                logger.error(f"Invalid checkpoint data: {checkpoint.checkpoint_id}")
+            if not checkpoint.checkpoint_id:
+                logger.error("Invalid checkpoint data: missing checkpoint_id")
                 return False
             
             # Create checkpoint file path
@@ -174,8 +174,7 @@ class CheckpointSystem:
             # Deserialize checkpoint
             checkpoint = self._deserialize_checkpoint(checkpoint_dict)
             
-            # Additional validation
-            if not checkpoint.is_valid():
+            if not checkpoint.checkpoint_id:
                 logger.error(f"Loaded checkpoint is invalid: {checkpoint_id}")
                 return None
             
@@ -372,6 +371,25 @@ class CheckpointSystem:
             logger.error(f"Failed to get checkpoint info {checkpoint_id}: {e}")
             return None
     
+    def find_latest_by_input(self, input_path: str) -> Optional[CheckpointData]:
+        """Find the latest checkpoint matching the given input file (by content hash, not path)."""
+        file_hash = self._calculate_file_hash(input_path)
+        if file_hash == "unknown":
+            return None
+
+        best: Optional[CheckpointData] = None
+        for cp_file in self.checkpoint_dir.glob(f"*{self.checkpoint_ext}"):
+            try:
+                cp = self.load_checkpoint(cp_file.stem)
+                if cp is None:
+                    continue
+                if cp.input_hash == file_hash or cp.metadata.get("input_file_hash") == file_hash:
+                    if best is None or (cp.timestamp and best.timestamp and cp.timestamp > best.timestamp):
+                        best = cp
+            except Exception:
+                continue
+        return best
+
     def _generate_checkpoint_id(self, input_path: str, stage: str, timestamp: datetime) -> str:
         """Generate unique checkpoint ID."""
         # Use input filename, stage, and timestamp
@@ -406,7 +424,6 @@ class CheckpointSystem:
         strategy_dict = checkpoint_dict['strategy']
         strategy = ProcessingStrategy(**strategy_dict)
         
-        # Create checkpoint object
         checkpoint = CheckpointData(
             checkpoint_id=checkpoint_dict['checkpoint_id'],
             timestamp=timestamp,
@@ -416,9 +433,13 @@ class CheckpointSystem:
             input_path=checkpoint_dict['input_path'],
             output_path=checkpoint_dict['output_path'],
             strategy=strategy,
-            metadata=checkpoint_dict.get('metadata', {})
+            metadata=checkpoint_dict.get('metadata', {}),
+            input_hash=checkpoint_dict.get('input_hash', ''),
+            frame_index=checkpoint_dict.get('frame_index', 0),
+            scene_index=checkpoint_dict.get('scene_index', 0),
+            output_offset=checkpoint_dict.get('output_offset', 0),
         )
-        
+
         return checkpoint
     
     def _calculate_checkpoint_hash(self, checkpoint_dict: Dict[str, Any]) -> str:
@@ -444,13 +465,13 @@ class CheckpointSystem:
         return stored_hash == calculated_hash
     
     def _calculate_file_hash(self, file_path: str) -> str:
-        """Calculate SHA256 hash of a file."""
+        """Calculate MD5 hash of the first 1MB of a file (fast identification)."""
         try:
-            hash_sha256 = hashlib.sha256()
+            h = hashlib.md5()
             with open(file_path, "rb") as f:
-                for chunk in iter(lambda: f.read(4096), b""):
-                    hash_sha256.update(chunk)
-            return hash_sha256.hexdigest()
+                data = f.read(1024 * 1024)  # first 1MB only
+                h.update(data)
+            return h.hexdigest()
         except Exception as e:
             logger.warning(f"Could not calculate hash for {file_path}: {e}")
             return "unknown"

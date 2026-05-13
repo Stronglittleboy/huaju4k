@@ -1,283 +1,218 @@
 #!/usr/bin/env python3
 """
-主CLI应用程序 - huaju4k视频增强工具
-
-实现任务12.1的要求：
-- 实现基于Click的命令行界面
-- 添加命令解析和验证
-- 创建输出路径处理系统
-- 需求: 2.1, 2.2, 2.5
+huaju4k CLI — 话剧视频 4K 增强工具命令行界面
 """
 
-import os
+import json
 import sys
-import click
+import time
 import logging
 from pathlib import Path
-from typing import Optional, List, Dict, Any
+from typing import Optional
 
-# 添加项目路径以支持导入
-sys.path.insert(0, str(Path(__file__).parent.parent.parent))
+import click
 
-from huaju4k.core.video_enhancement_processor import VideoEnhancementProcessor
-from huaju4k.models.data_models import ProcessResult
-from huaju4k.utils.system_utils import get_system_info, check_dependencies
-from huaju4k.cli.utils import (
-    setup_logging, validate_input_file, generate_output_path,
-    display_system_info, display_processing_result, handle_processing_error
-)
-
-# 配置日志
 logger = logging.getLogger(__name__)
 
-# 支持的预设
-THEATER_PRESETS = ['theater_small', 'theater_medium', 'theater_large']
-QUALITY_LEVELS = ['fast', 'balanced', 'high']
+QUALITY_LEVELS = ["fast", "standard", "master"]
+CODECS = ["h264", "h265", "prores"]
+
+
+def _setup_logging(verbose: bool) -> None:
+    level = logging.DEBUG if verbose else logging.INFO
+    logging.basicConfig(
+        level=level,
+        format="%(asctime)s [%(levelname)s] %(name)s: %(message)s",
+        datefmt="%H:%M:%S",
+    )
+
+
+# ---------------------------------------------------------------------------
+# CLI group
+# ---------------------------------------------------------------------------
 
 @click.group(invoke_without_command=True)
-@click.option('--version', is_flag=True, help='显示版本信息')
-@click.option('--system-info', is_flag=True, help='显示系统信息和兼容性状态')
+@click.option("--version", is_flag=True, help="显示版本信息")
 @click.pass_context
-def cli(ctx, version, system_info):
-    """
-    huaju4k - 专业的戏剧视频4K增强工具
-    
-    将1080p/720p戏剧视频增强至4K分辨率，并优化戏剧音频效果。
-    """
+def cli(ctx, version):
+    """huaju4k — 话剧视频 4K 增强工具"""
     if ctx.invoked_subcommand is None:
         if version:
-            display_version()
-        elif system_info:
-            display_system_info()
+            from huaju4k import __version__
+            click.echo(f"huaju4k v{__version__}")
         else:
             click.echo(ctx.get_help())
 
+
+# ---------------------------------------------------------------------------
+# enhance 命令
+# ---------------------------------------------------------------------------
+
 @cli.command()
-@click.argument('input_file', type=click.Path(exists=True, readable=True))
-@click.option('-o', '--output', 'output_path', 
-              type=click.Path(), 
-              help='输出文件路径（默认：输入文件目录下的enhanced子目录）')
-@click.option('-p', '--preset', 
-              type=click.Choice(THEATER_PRESETS, case_sensitive=False),
-              default='theater_medium',
-              help='剧院预设配置 (默认: theater_medium)')
-@click.option('-q', '--quality',
-              type=click.Choice(QUALITY_LEVELS, case_sensitive=False),
-              default='balanced',
-              help='质量级别 (默认: balanced)')
-@click.option('-c', '--config',
-              type=click.Path(exists=True, readable=True),
-              help='自定义配置文件路径')
-@click.option('-v', '--verbose', is_flag=True,
-              help='显示详细处理信息')
-@click.option('--dry-run', is_flag=True,
-              help='预览处理参数，不执行实际处理')
-@click.option('--force', is_flag=True,
-              help='强制覆盖已存在的输出文件')
-def enhance(input_file, output_path, preset, quality, config, verbose, dry_run, force):
-    """
-    增强单个视频文件
-    
-    实现需求2.1: 处理视频文件与默认theater-medium预设
-    实现需求2.2: 指定输出位置保存增强视频
-    实现需求2.3: 应用剧院特定配置
-    实现需求2.4: 调整处理参数
-    
+@click.argument("input_file", type=click.Path(exists=True, readable=True))
+@click.option("-o", "--output", "output_path", type=click.Path(), default=None,
+              help="输出文件路径")
+@click.option("-q", "--quality", type=click.Choice(QUALITY_LEVELS, case_sensitive=False),
+              default="standard", help="质量档位: fast / standard / master (默认 standard)")
+@click.option("--codec", type=click.Choice(CODECS, case_sensitive=False),
+              default="h264", help="输出编码: h264 / h265 / prores (默认 h264)")
+@click.option("--crf", type=int, default=18, help="质量参数 CRF (默认 18)")
+@click.option("--preview", is_flag=True, help="预览模式: 只处理前 30 秒")
+@click.option("--preview-at", type=str, default=None,
+              help="预览模式: 从指定时间点开始处理 30 秒 (格式 HH:MM:SS)")
+@click.option("--segment", nargs=2, type=str, default=None,
+              help="只处理指定时间段 (格式: HH:MM:SS HH:MM:SS)")
+@click.option("--resume", is_flag=True, help="从上次断点续传")
+@click.option("-v", "--verbose", is_flag=True, help="详细日志")
+@click.option("--force", is_flag=True, help="强制覆盖已有输出")
+@click.option("--dry-run", is_flag=True, help="预览策略，不执行处理")
+def enhance(input_file, output_path, quality, codec, crf, preview, preview_at,
+            segment, resume, verbose, force, dry_run):
+    """增强单个话剧视频到 4K
+
+    \b
     示例:
-        huaju4k enhance video.mp4
-        huaju4k enhance video.mp4 -o enhanced_video.mp4 -p theater_large -q high
+      python -m huaju4k enhance input.mp4
+      python -m huaju4k enhance input.mp4 --preview
+      python -m huaju4k enhance input.mp4 --quality master --codec h265 --crf 20
+      python -m huaju4k enhance input.mp4 --segment 00:15:00 00:25:00
+      python -m huaju4k enhance input.mp4 --resume
     """
-    # 设置日志级别
-    setup_logging(verbose)
-    
+    _setup_logging(verbose)
+
+    input_path = Path(input_file).resolve()
+
+    if output_path is None:
+        stem = input_path.stem
+        output_path = input_path.parent / f"{stem}_4k.mp4"
+    else:
+        output_path = Path(output_path).resolve()
+
+    if output_path.exists() and not force:
+        click.echo(f"输出文件已存在: {output_path}  (使用 --force 覆盖)")
+        sys.exit(1)
+
+    # ---- 延迟导入重量级模块 ----
     try:
-        # 验证输入文件
-        input_path = validate_input_file(input_file)
-        logger.info(f"输入文件: {input_path}")
-        
-        # 生成输出路径
-        if output_path is None:
-            output_path = generate_output_path(input_path, preset, quality)
-        else:
-            output_path = Path(output_path).resolve()
-        
-        logger.info(f"输出路径: {output_path}")
-        
-        # 检查输出文件是否存在
-        if output_path.exists() and not force:
-            click.echo(f"错误: 输出文件已存在: {output_path}")
-            click.echo("使用 --force 选项强制覆盖")
-            sys.exit(1)
-        
-        # 显示处理参数
-        click.echo(f"输入文件: {input_path}")
-        click.echo(f"输出路径: {output_path}")
-        click.echo(f"剧院预设: {preset}")
-        click.echo(f"质量级别: {quality}")
-        if config:
-            click.echo(f"配置文件: {config}")
-        
-        # 预览模式
-        if dry_run:
-            click.echo("\n预览模式 - 不执行实际处理")
-            click.echo("处理参数已验证，可以执行实际处理")
-            return
-        
-        # 确认处理
-        if not click.confirm("\n开始处理？"):
-            click.echo("处理已取消")
-            return
-        
-        # 初始化处理器
-        click.echo("\n初始化视频增强处理器...")
-        processor = VideoEnhancementProcessor(config_path=config)
-        
-        # 执行处理
-        click.echo("开始视频增强处理...")
-        result = processor.process(
+        from huaju4k.analysis.stage_structure_analyzer import StageStructureAnalyzer
+        from huaju4k.strategy.enhancement_planner import EnhancementStrategyPlanner
+        from huaju4k.media.ffmpeg_media_controller import FFmpegMediaController
+    except ImportError as e:
+        click.echo(f"依赖缺失: {e}")
+        sys.exit(1)
+
+    # ---- 分析 ----
+    click.echo(f"输入: {input_path}")
+    click.echo(f"输出: {output_path}")
+    click.echo(f"质量: {quality}  编码: {codec}  CRF: {crf}")
+
+    media = FFmpegMediaController()
+    video_info = media.analyze_input_video(str(input_path))
+
+    analyzer = StageStructureAnalyzer()
+    features = analyzer.analyze_structure(str(input_path))
+
+    planner = EnhancementStrategyPlanner()
+    strategy = planner.generate_strategy(features, quality=quality, codec=codec, crf=crf)
+
+    # ---- 预处理确认 ----
+    static_count = sum(1 for s in strategy.scenes if s.type == "static")
+    gradual_count = sum(1 for s in strategy.scenes if s.type == "gradual")
+    dynamic_count = sum(1 for s in strategy.scenes if s.type == "dynamic")
+
+    click.echo(f"\n{'='*50}")
+    click.echo(f"输入: {input_path.name} ({video_info.width}x{video_info.height}, "
+               f"{video_info.duration:.0f}s, {video_info.file_size/(1024*1024):.1f}MB)")
+    click.echo(f"策略: {strategy.model_name} (tile={strategy.tile_size})")
+    click.echo(f"场景: {len(strategy.scenes)} 段 "
+               f"(static {static_count} / gradual {gradual_count} / dynamic {dynamic_count})")
+    click.echo(f"降噪: {strategy.denoise_strength}")
+
+    if preview or preview_at:
+        click.echo("模式: 预览 (30 秒)")
+    elif segment:
+        click.echo(f"模式: 片段 ({segment[0]} ~ {segment[1]})")
+    elif resume:
+        click.echo("模式: 断点续传")
+    click.echo(f"{'='*50}")
+
+    if dry_run:
+        click.echo("\n[dry-run] 策略预览完成，未执行处理")
+        return
+
+    if not click.confirm("\n是否开始处理?", default=True):
+        click.echo("已取消")
+        return
+
+    # ---- 执行处理 ----
+    start_time = time.time()
+    click.echo("\n开始处理...")
+
+    try:
+        from huaju4k.core.three_stage_enhancer import ThreeStageEnhancer
+
+        enhancer = ThreeStageEnhancer()
+        result = enhancer.process(
             input_path=str(input_path),
             output_path=str(output_path),
-            preset=preset,
-            quality=quality
+            strategy=strategy,
+            preview=preview,
+            preview_at=preview_at,
+            segment=segment,
+            resume=resume,
         )
-        
-        # 显示结果
-        display_processing_result(result)
-        
-        if result.success:
-            click.echo(f"\n✅ 处理完成！输出文件: {result.output_path}")
-            sys.exit(0)
-        else:
-            click.echo(f"\n❌ 处理失败: {result.error}")
-            sys.exit(1)
-            
     except Exception as e:
-        handle_processing_error(e, verbose)
+        logger.exception("处理失败")
+        click.echo(f"\n处理失败: {e}")
         sys.exit(1)
 
-@cli.command()
-@click.argument('input_dir', type=click.Path(exists=True, file_okay=False, dir_okay=True))
-@click.option('-o', '--output-dir', 'output_dir',
-              type=click.Path(file_okay=False, dir_okay=True),
-              help='输出目录（默认：输入目录下的enhanced子目录）')
-@click.option('-p', '--preset',
-              type=click.Choice(THEATER_PRESETS, case_sensitive=False),
-              default='theater_medium',
-              help='剧院预设配置 (默认: theater_medium)')
-@click.option('-q', '--quality',
-              type=click.Choice(QUALITY_LEVELS, case_sensitive=False),
-              default='balanced',
-              help='质量级别 (默认: balanced)')
-@click.option('-c', '--config',
-              type=click.Path(exists=True, readable=True),
-              help='自定义配置文件路径')
-@click.option('--pattern', default='*.mp4',
-              help='文件匹配模式 (默认: *.mp4)')
-@click.option('--recursive', is_flag=True,
-              help='递归搜索子目录')
-@click.option('-v', '--verbose', is_flag=True,
-              help='显示详细处理信息')
-@click.option('--dry-run', is_flag=True,
-              help='预览要处理的文件，不执行实际处理')
-@click.option('--force', is_flag=True,
-              help='强制覆盖已存在的输出文件')
-@click.option('--continue-on-error', is_flag=True,
-              help='遇到错误时继续处理其他文件')
-def batch(input_dir, output_dir, preset, quality, config, pattern, recursive, 
-          verbose, dry_run, force, continue_on_error):
-    """
-    批量处理视频文件
-    
-    实现需求2.6: 批量处理多个视频文件
-    实现需求12.1, 12.2, 12.3, 12.4: 批量处理功能
-    
-    示例:
-        huaju4k batch /path/to/videos
-        huaju4k batch /path/to/videos -o /path/to/output --recursive
-    """
-    # 设置日志级别
-    setup_logging(verbose)
-    
-    try:
-        from huaju4k.cli.batch_processor import BatchProcessor
-        
-        # 初始化批处理器
-        batch_processor = BatchProcessor(
-            input_dir=input_dir,
-            output_dir=output_dir,
-            preset=preset,
-            quality=quality,
-            config_path=config,
-            pattern=pattern,
-            recursive=recursive,
-            force=force,
-            continue_on_error=continue_on_error,
-            verbose=verbose
-        )
-        
-        # 预览模式
-        if dry_run:
-            batch_processor.preview()
-            return
-        
-        # 执行批处理
-        batch_processor.process()
-        
-    except Exception as e:
-        handle_processing_error(e, verbose)
+    elapsed = time.time() - start_time
+
+    # ---- 完成报告 ----
+    if result.success:
+        report = result.report or {}
+        click.echo(f"\n处理完成")
+        click.echo(f"  耗时: {elapsed/3600:.1f}h | 平均速度: {result.frames_processed/elapsed:.2f} fps")
+        click.echo(f"  输出: {result.output_path}")
+        if report:
+            report_path = Path(result.output_path).with_suffix(".report.json")
+            report_path.write_text(json.dumps(report, indent=2, ensure_ascii=False))
+            click.echo(f"  报告: {report_path}")
+    else:
+        click.echo(f"\n处理失败: {result.error}")
         sys.exit(1)
 
+
+# ---------------------------------------------------------------------------
+# info 命令
+# ---------------------------------------------------------------------------
+
 @cli.command()
-@click.option('--detailed', is_flag=True, help='显示详细系统信息')
+@click.option("--detailed", is_flag=True, help="显示详细系统信息")
 def info(detailed):
-    """
-    显示系统信息和兼容性状态
-    
-    实现需求2.5: 显示硬件能力和兼容性状态
-    """
-    display_system_info(detailed)
+    """显示系统信息和兼容性状态"""
+    from huaju4k import __version__
+    click.echo(f"huaju4k v{__version__}\n")
 
-@cli.command()
-@click.option('--list-presets', is_flag=True, help='列出所有可用预设')
-@click.option('--validate', type=click.Path(exists=True, readable=True),
-              help='验证配置文件')
-@click.option('--create-preset', type=str,
-              help='创建新预设（指定预设名称）')
-def config(list_presets, validate, create_preset):
-    """
-    配置和预设管理
-    
-    实现需求8.1, 8.2, 8.3, 8.5, 8.6: 配置和预设管理
-    """
     try:
-        from huaju4k.cli.config_manager import ConfigCLI
-        
-        config_cli = ConfigCLI()
-        
-        if list_presets:
-            config_cli.list_presets()
-        elif validate:
-            config_cli.validate_config(validate)
-        elif create_preset:
-            config_cli.create_preset(create_preset)
-        else:
-            click.echo("请指定配置操作。使用 --help 查看可用选项。")
-            
+        from huaju4k.utils.system_utils import get_system_info
+        sys_info = get_system_info()
+        for key, value in sys_info.items():
+            click.echo(f"  {key}: {value}")
     except Exception as e:
-        click.echo(f"配置操作失败: {e}")
-        sys.exit(1)
+        click.echo(f"  系统检测失败: {e}")
 
-def display_version():
-    """显示版本信息"""
     try:
-        from huaju4k import __version__
-        version = __version__
+        import torch
+        if torch.cuda.is_available():
+            name = torch.cuda.get_device_name(0)
+            mem = torch.cuda.get_device_properties(0).total_memory / (1024**3)
+            click.echo(f"\n  GPU: {name} ({mem:.1f} GB)")
+        else:
+            click.echo("\n  GPU: 不可用 (将使用 CPU lanczos)")
     except ImportError:
-        version = "开发版本"
-    
-    click.echo(f"huaju4k 视频增强工具 v{version}")
-    click.echo("专业的戏剧视频4K增强工具")
-    click.echo("Copyright (c) 2025 huaju4k项目")
+        click.echo("\n  GPU: PyTorch 未安装")
 
-if __name__ == '__main__':
+
+if __name__ == "__main__":
     cli()
